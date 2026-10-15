@@ -14,6 +14,8 @@
 
 ## 预算与正式执行门槛
 
+首租 GPU 型号、CPU/内存/磁盘余量和型号歧义见 [GPU 租用建议](GPU_RENTAL_RECOMMENDATION_2026-10-15.md)。正式训练协议还须核对论文 Push-T 的 10 epochs 与当前上游 `max_epochs: 100` 的差异，冻结实际采用的 epoch 数及差异说明。
+
 先完成有明确最长时长和停止条件的计时试跑，记录 batch/s、峰值显存、数据吞吐、每 epoch 时长与日志。按 `预计 epoch 时长 × 冻结 epoch 数 × 实例价格` 计算方案，再加上下载/准备占用和安全余量；价格、费用上限及中断/恢复方式提交用户批准。没有实例价格和计时数据时，GPU 小时及费用为 `N/A`。
 
 获批准且前置条件通过后，官方训练入口是 `python train.py data=pusht`。如需覆盖 `wandb`、数据格式、运行目录或恢复参数，逐项记录精确命令与变更；禁止隐式调整训练预算。记录每次优化步参数哈希/差异、损失、显存、总 GPU 时间、日志及 Checkpoint 哈希。先完整训练官方 Push-T，再独立进程加载 Checkpoint，运行固定评测协议 `python eval.py --config-name=pusht.yaml policy=pusht/lewm`；评价数据不能来自训练拆分。评测路径约定和输出格式须以实际版本/工件验证。
