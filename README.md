@@ -1,3 +1,7 @@
+> **V2 upgrade status (2026-10-15): PLANNING / REMOTE AUDIT ONLY.** A development branch has been created to prepare a LeWorldModel-based, action-conditioned visuo-tactile world-model upgrade. **No v2 model training, tactile experiments, video generation, or GPU evaluation has been performed.** The Windows working directory and AutoDL connection still require verification.
+>
+> Read [V2 baseline audit](docs/V2_BASELINE_AUDIT.md), [research contract](docs/V2_RESEARCH_CONTRACT.md), [gated implementation plan](docs/V2_IMPLEMENTATION_PLAN.md) and [G0 Windows/AutoDL runbook](docs/G0_EXECUTION_RUNBOOK.md). The legacy v1 research and negative result remain below unchanged.
+
 # Interventional World Models
 
 Research code for **action-conditioned visual world models from sparse physical interventions**.
