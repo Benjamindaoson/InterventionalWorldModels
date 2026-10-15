@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_AUDITED_TRAINING_BLOCKED",
+  "upstream": {
+    "url": "https://github.com/lucas-maes/le-wm.git",
+    "commit": "8edfeb336732b5f3ce7b8b210d0ba370a09e2cac",
+    "license": "MIT License; Copyright (c) 2026 Lucas Maes",
+    "train_entry": "train.py",
+    "evaluation_entry": "eval.py",
+    "model": "jepa.JEPA",
+    "configuration": "config/train/lewm.yaml + config/train/data/pusht.yaml + config/train/launcher/local.yaml",
+    "wandb_static_composition": "launcher: local injects global wandb.enabled=false; runtime composition not yet executed"
+  },
+  "dataset_reference": {
+    "url": "https://huggingface.co/datasets/quentinll/lewm-pusht",
+    "revision": "655cd446b9929369d7d406001da85c15d1457850",
+    "published_file": "pusht_expert_train.h5.zst",
+    "configured_name": "pusht_expert_train.lance",
+    "local_file_sha256": null,
+    "decode_verified": false
+  },
+  "environment": {
+    "python": "3.10 per upstream README",
+    "upstream_install_request": "stable-worldmodel[train,env]",
+    "resolved_dependency_lock": null,
+    "autodl_gpu_verified": false
+  },
+  "training": {
+    "command_after_blockers_resolved": "python train.py data=pusht",
+    "executed": false,
+    "checkpoint_sha256": null,
+    "evaluation_executed": false
+  }
+}

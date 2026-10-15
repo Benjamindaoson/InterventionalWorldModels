@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "InterventionalWorldModels 当前运行结构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Benjamindaoson/InterventionalWorldModels",
+      "revision": "c49cb7ca215762adaa1d30b381a58c2f8be7fecd"
+    },
+    "viewBox": [1380, 820]
+  },
+  "components": [
+    {"id":"toy_cli","type":"external","label":"阈值演示入口","sublabel":"python -m iwm.thresholds","pos":[70,105],"size":[175,70],"sources":[{"path":"src/iwm/thresholds.py","line":75}]},
+    {"id":"bisection","type":"backend","label":"主动二分","sublabel":"单调阈值探测","pos":[355,105],"size":[175,70],"sources":[{"path":"src/iwm/thresholds.py","line":58}]},
+    {"id":"interval","type":"backend","label":"区间与弃权预测","sublabel":"确定性玩具模型","pos":[650,105],"size":[190,70],"sources":[{"path":"src/iwm/thresholds.py","line":17}]},
+    {"id":"sim","type":"external","label":"MuJoCo 可选依赖","sublabel":"物理状态模拟","pos":[70,355],"size":[175,70],"sources":[{"path":"src/iwm/mujoco_data.py","line":5}]},
+    {"id":"generator","type":"backend","label":"物理烟测生成器","sublabel":"力 × 摩擦系数","pos":[355,355],"size":[175,70],"sources":[{"path":"src/iwm/mujoco_data.py","line":18}]},
+    {"id":"jsonl","type":"database","label":"JSONL 输出","sublabel":"位移与是否移动","pos":[650,355],"size":[190,70],"sources":[{"path":"src/iwm/mujoco_data.py","line":19}]},
+    {"id":"rgb","type":"backend","label":"RGB 分支模型","sublabel":"图像 + 候选动作","pos":[70,605],"size":[175,70],"sources":[{"path":"src/iwm/learning.py","line":9}]},
+    {"id":"objective","type":"backend","label":"训练目标","sublabel":"事件 / 位移 / 成对差","pos":[355,605],"size":[175,70],"sources":[{"path":"src/iwm/learning.py","line":25}]},
+    {"id":"evaluation","type":"backend","label":"局部评价函数","sublabel":"准确率 / Brier","pos":[650,605],"size":[190,70],"sources":[{"path":"src/iwm/learning.py","line":64}]},
+    {"id":"protocol","type":"security","label":"实验元数据与拆分检查","sublabel":"指纹 / 场景泄漏","pos":[920,355],"size":[210,70],"sources":[{"path":"src/iwm/experiment_protocol.py","line":5}]},
+    {"id":"tests","type":"backend","label":"单元测试","sublabel":"局部行为验证","pos":[1170,355],"size":[180,70],"sources":[{"path":"tests/test_core.py","line":5},{"path":"tests/test_learning.py","line":4}]}
+  ],
+  "connections": [
+    {"from":"toy_cli","to":"bisection","label":"调用"},
+    {"from":"bisection","to":"interval","label":"更新区间"},
+    {"from":"sim","to":"generator","label":"逐步模拟"},
+    {"from":"generator","to":"jsonl","label":"写出"},
+    {"from":"rgb","to":"objective","label":"预测张量"},
+    {"from":"objective","to":"evaluation","label":"同模块独立函数","variant":"dashed"},
+    {"from":"protocol","to":"tests","label":"单元断言","labelDy":59}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"已在源码中存在","items":["阈值演示、物理生成器和 RGB 学习函数是三条分离路径。","元数据与拆分检查由单元测试调用。"]},
+    {"dot":"amber","title":"关键边界","items":["MuJoCo 是可选依赖；生成器尚未接入 RGB 数据加载或训练。","图中不表示训练运行、Checkpoint、云端服务或真机执行。"]}
+  ]
+}

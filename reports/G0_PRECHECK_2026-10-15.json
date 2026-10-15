@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-10-15T09:36:27.891877+00:00",
+  "status": "BLOCKED",
+  "mode": "local",
+  "upstream": {
+    "path": "C:\\Users\\Admin（无密码）\\AppData\\Local\\Temp\\iwm-lewm-upstream-audit",
+    "remote": "https://github.com/lucas-maes/le-wm.git",
+    "commit": "8edfeb336732b5f3ce7b8b210d0ba370a09e2cac",
+    "expected_commit": "8edfeb336732b5f3ce7b8b210d0ba370a09e2cac",
+    "file_sha256": {
+      "train": "a4d62f99ce8551598843873635b2a7b60e08119db35a0c62ac27f0ca10f3ab83",
+      "jepa": "9cd5914da775926ff925f0ed6d06f745c0bb9be500919d7a2158913bec1334a9",
+      "module": "262ade4a34589dd2cdf3d04c63189ce90694662b8c59c3605a8ee433be29d1e1",
+      "license": "0e66685ed351839b0baf614c4207aa2c5e6ab9dbe419aac9c38d0998a000200c",
+      "train_config": "7293e3a82dcfc4b01475c746eb73d0df9a08e65ecc6ad000ceb2ec95377b0bd2",
+      "launcher_config": "2455f23dd9c8eebf68edc7c874aee7e109b72a5eeddffd89177bb62ac20c81bf",
+      "data_config": "90656b689a019ce7359aa9fec02908b042419bf5a91f19e4d5c4400d62aa1bf6"
+    }
+  },
+  "data": {
+    "root": "D:\\robotics\\InterventionalWorldModels\\data",
+    "reference_hf_revision": "655cd446b9929369d7d406001da85c15d1457850",
+    "configured_name": "pusht_expert_train.lance",
+    "configured_path": null,
+    "size_bytes": null,
+    "sha256": null,
+    "sha256_kind": null,
+    "decode_verified": false,
+    "loader_data_root": null
+  },
+  "gpu": null,
+  "free_disk_gb": null,
+  "cost_ceiling_cny": null,
+  "training_executed": false,
+  "checkpoint": null,
+  "checks": {
+    "upstream_identity": "PASS",
+    "upstream_files": "PASS",
+    "composed_config": "PASS",
+    "data_presence": "BLOCKED",
+    "data_integrity": "BLOCKED",
+    "loader_binding": "NOT_APPLICABLE",
+    "gpu": "NOT_APPLICABLE",
+    "disk": "NOT_APPLICABLE",
+    "budget": "NOT_APPLICABLE"
+  },
+  "blockers": [
+    {
+      "code": "data_root_missing",
+      "detail": "D:\\robotics\\InterventionalWorldModels\\data"
+    }
+  ]
+}
