@@ -17,7 +17,7 @@
 | G5 泛化与规划 | 尚未开始 | 无独立闭环评测 |
 | G6 统一研究报告 | 尚未开始 | 只在各 Gate 有真实证据后汇总 |
 
-G0 的阻塞具体是：当前官方训练配置引用 `pusht_expert_train.lance`，而官方公开 Push-T 数据仓库展示 `pusht_expert_train.h5.zst`；转换和真实数据加载尚未验证。`cfg.wandb.enabled` 由 Hydra 的 `launcher/local.yaml` 注入，静态配置核对已通过。现有 `autodl-p1` SSH 端点拒绝连接，GPU/磁盘/价格尚未核实。详见 [基线审计](docs/V2_BASELINE_AUDIT.md) 和 [G0 预检收据](reports/G0_PRECHECK_2026-10-15.md)。
+G0 的阻塞具体是：当前官方训练配置引用 `pusht_expert_train.lance`，已发现同名的[公开 Lance 候选数据](docs/G0_LANCE_SOURCE_RESEARCH_2026-10-15.md)，但尚未用固定 Loader 实读，也未证实与原 HDF5 内容等价。`cfg.wandb.enabled` 由 Hydra 的 `launcher/local.yaml` 注入，静态配置核对已通过。现有 `autodl-p1` SSH 端点拒绝连接，GPU/磁盘/价格尚未核实。详见 [基线审计](docs/V2_BASELINE_AUDIT.md)、[G0 预检收据](reports/G0_PRECHECK_2026-10-15.md)和[数据及连接核验回执](reports/G0/DATA_ACCESS_AUDIT_2026-10-15.md)。
 
 ## 架构与代码归属
 

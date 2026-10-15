@@ -19,6 +19,18 @@
     "local_file_sha256": null,
     "decode_verified": false
   },
+  "candidate_lance": {
+    "url": "https://huggingface.co/datasets/galilai-group/lewm-pusht",
+    "revision": "ea321e392348e3c65a18ab0d685f00e57be2c3e0",
+    "path": "pusht_expert_train.lance",
+    "data_shards_bytes": 14295080031,
+    "public_schema_observed": ["episode_idx", "step_idx", "action", "pixels", "proprio", "state"],
+    "source_relation": "publisher card claims Lance version of official Push-T data; conversion equivalence unverified",
+    "image_payload_codec": null,
+    "loader_static_compatibility": "candidate: .lance name and required columns match upstream config; exact installed loader unresolved",
+    "loader_runtime_verified": false,
+    "local_file_sha256": null
+  },
   "environment": {
     "python": "3.10 per upstream README",
     "upstream_install_request": "stable-worldmodel[train,env]",
