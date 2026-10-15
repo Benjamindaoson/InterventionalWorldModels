@@ -1,0 +1,25 @@
+{
+  "status": "PASS_FIXTURE_ONLY",
+  "rows": 50,
+  "windows": 12,
+  "shapes": {
+    "pixels": [
+      4,
+      3,
+      224,
+      224
+    ],
+    "action": [
+      4,
+      10
+    ],
+    "proprio": [
+      4,
+      4
+    ],
+    "state": [
+      4,
+      7
+    ]
+  }
+}

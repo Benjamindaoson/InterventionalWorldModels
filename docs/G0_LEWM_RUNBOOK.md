@@ -10,7 +10,7 @@
 4. 在各 checkout 分别创建 `.venv`。上游 README 的 Python 3.10 与 `stable-worldmodel[train,env]` 只是安装请求，不是依赖锁。实机安装并测试后保存完整 `pip freeze`/`uv pip freeze`、wheel 来源和 CUDA/PyTorch 版本，固定后再执行正式训练。
 5. 官方数据仓库固定 revision `655cd446b9929369d7d406001da85c15d1457850`；页面显示 `pusht_expert_train.h5.zst`，压缩文件约 13.1 GB。先确认空间、下载许可、哈希和实际解压/转换流程。[stable-worldmodel](https://github.com/galilai-group/stable-worldmodel) 提供格式转换接口，但本项目尚未验证此文件的具体转换配方。不要因训练配置需要 `.lance` 就简单改名；真实加载、字段、长度、动作维度和抽样值必须检查。
    - 可优先核验固定 revision `ea321e392348e3c65a18ab0d685f00e57be2c3e0` 的 [`galilai-group/lewm-pusht`](https://huggingface.co/datasets/galilai-group/lewm-pusht)。其 `pusht_expert_train.lance/` 三个数据分片合计 14,295,080,031 bytes。来源、字段和未验证项目见 [Lance 核验](G0_LANCE_SOURCE_RESEARCH_2026-10-15.md)。它目前是候选源，不替换 HDF5 来源锁；卡片声明不等于转换等价证据。
-   - 固定版 `train.py` 将配置中的 `pusht_expert_train.lance` 传给 `swm.data.load_dataset(..., cache_dir=LOCAL_DATASET_DIR, num_steps=4, frameskip=5, keys_to_load=...)`。候选目录名与公开字段静态吻合。当前本地独立 `.venv` 未安装 `stable-worldmodel`/Lance 读取依赖，也未下载数据，故 **真实 Loader 兼容性仍未验证**。先锁定依赖版本和 HF 数据 revision，在可达实例上作有上限的小样本读取；记录实际 dataset 长度、episode 数、列维度、图像 dtype/shape/codec、前后窗口索引与读取耗时。
+   - 固定版 `train.py` 将配置中的 `pusht_expert_train.lance` 传给 `swm.data.load_dataset(..., cache_dir=LOCAL_DATASET_DIR, num_steps=4, frameskip=5, keys_to_load=...)`。WSL `.venv-lewm-wsl` 已通过小型隔离 Lance 表的 Loader 契约；官方数据已通过底层 Lance 的有界远程读取核实两行和一张 JPEG，见 [实际回执](../reports/G0/G0_RUNTIME_PREFLIGHT_2026-10-15.md)。官方数据经完整 `swm.data.load_dataset` 的兼容性仍未验证：其当前实现会扫描 episode 索引，官方 `keys_to_cache` 还会读取整列，不应把远程对象当成两行样本调用。
    - 全量传输前至少计入 14.30 GB 数据分片，另核算 Lance 元数据、下载缓存、运行缓存、Checkpoint 和日志占用。核实可用空间与持久化策略后再申请全量传输许可；不能以估算行数代替实测。
 6. `train.py` 的 `cfg.wandb.enabled` 由 Hydra `launcher: local` 默认项加载的 `launcher/local.yaml` 注入，静态配置为 `False`。在安装上游依赖后输出实际组合配置，核对生效值。如需修改任何上游配置，保存原始文件、最小补丁和哈希。
 7. 将 `LOCAL_DATASET_DIR` 设为核实后的数据根目录，使用 `python -m iwm.g0_preflight --upstream <固定上游目录> --data-root <同一数据根目录> --mode autodl --hash-data --max-gpu-hours <上限> --hourly-rate-cny <已核实价格> --output <收据>`。哈希可能耗时。即使显示 `PASS_STATIC_ONLY`，还要做真实数据加载和一小批前后向计算。
@@ -26,6 +26,8 @@ Windows `ssh -G autodl-p1` 显示 `root@connect.cqa1.seetacloud.com:14946`；TCP
 ## 预算与正式执行门槛
 
 首租 GPU 型号、CPU/内存/磁盘余量和型号歧义见 [GPU 租用建议](GPU_RENTAL_RECOMMENDATION_2026-10-15.md)。正式训练协议还须核对论文 Push-T 的 10 epochs 与当前上游 `max_epochs: 100` 的差异，冻结实际采用的 epoch 数及差异说明。
+
+已据[论文附录 E](https://arxiv.org/html/2603.19312)将两套未执行协议明确分开：`upstream_config_100ep` 原样使用固定配置；`paper_budget_10ep` 显式覆盖 `trainer.max_epochs=10`。两者单独记录配置、数据、成本、Checkpoint 和评测，不能互称同一次复现。正式训练前还需核对其他协议差异。
 
 先完成有明确最长时长和停止条件的计时试跑，记录 batch/s、峰值显存、数据吞吐、每 epoch 时长与日志。按 `预计 epoch 时长 × 冻结 epoch 数 × 实例价格` 计算方案，再加上下载/准备占用和安全余量；价格、费用上限及中断/恢复方式提交用户批准。没有实例价格和计时数据时，GPU 小时及费用为 `N/A`。
 

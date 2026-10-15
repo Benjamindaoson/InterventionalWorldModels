@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "SOURCE_AUDITED_TRAINING_BLOCKED",
+  "status": "BOUNDED_LANCE_READ_VERIFIED_GPU_BLOCKED",
   "upstream": {
     "url": "https://github.com/lucas-maes/le-wm.git",
     "commit": "8edfeb336732b5f3ce7b8b210d0ba370a09e2cac",
@@ -9,7 +9,7 @@
     "evaluation_entry": "eval.py",
     "model": "jepa.JEPA",
     "configuration": "config/train/lewm.yaml + config/train/data/pusht.yaml + config/train/launcher/local.yaml",
-    "wandb_static_composition": "launcher: local injects global wandb.enabled=false; runtime composition not yet executed"
+    "wandb_static_composition": "Hydra --cfg job executed for 100/10 epoch variants; both compose wandb.enabled=false"
   },
   "dataset_reference": {
     "url": "https://huggingface.co/datasets/quentinll/lewm-pusht",
@@ -26,19 +26,26 @@
     "data_shards_bytes": 14295080031,
     "public_schema_observed": ["episode_idx", "step_idx", "action", "pixels", "proprio", "state"],
     "source_relation": "publisher card claims Lance version of official Push-T data; conversion equivalence unverified",
-    "image_payload_codec": null,
-    "loader_static_compatibility": "candidate: .lance name and required columns match upstream config; exact installed loader unresolved",
+    "image_payload_codec": "JPEG confirmed for row 0 only; 224x224 RGB",
+    "loader_static_compatibility": "candidate: .lance name and required columns match upstream config",
     "loader_runtime_verified": false,
+    "bounded_lance_remote_read_verified": true,
+    "remote_read_note": "pylance 13.0.0 hf:// URI read row 0/1 at HEAD matching pinned revision before and after; SWM loader on full real dataset not executed",
+    "fixture_swm_loader_verified": true,
     "local_file_sha256": null
   },
   "environment": {
     "python": "3.10 per upstream README",
     "upstream_install_request": "stable-worldmodel[train,env]",
-    "resolved_dependency_lock": null,
+    "resolved_dependency_lock": "configs/lewm/g0_wsl_loader_freeze.txt (Python 3.10.21, WSL, CPU-only fixture environment)",
     "autodl_gpu_verified": false
   },
   "training": {
     "command_after_blockers_resolved": "python train.py data=pusht",
+    "protocols": {
+      "upstream_config": {"max_epochs": 100, "config_override": null, "executed": false},
+      "paper_budget_pusht": {"max_epochs": 10, "config_override": "trainer.max_epochs=10", "executed": false}
+    },
     "executed": false,
     "checkpoint_sha256": null,
     "evaluation_executed": false

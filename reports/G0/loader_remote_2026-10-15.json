@@ -1,0 +1,68 @@
+{
+  "status": "PASS_BOUNDED_LANCE_READ",
+  "revision_before": "ea321e392348e3c65a18ab0d685f00e57be2c3e0",
+  "revision_after": "ea321e392348e3c65a18ab0d685f00e57be2c3e0",
+  "uri": "hf://datasets/galilai-group/lewm-pusht/pusht_expert_train.lance",
+  "row_count": 2336736,
+  "schema": "episode_idx: int32\nstep_idx: int32\naction: fixed_size_list<item: float>[2]\n  child 0, item: float\npixels: binary\nproprio: fixed_size_list<item: float>[4]\n  child 0, item: float\nstate: fixed_size_list<item: float>[7]\n  child 0, item: float",
+  "scalar_rows": [
+    {
+      "episode_idx": 0,
+      "step_idx": 0,
+      "action": [
+        0.14000000059604645,
+        -0.25
+      ],
+      "proprio": [
+        423.0,
+        182.0,
+        0.0,
+        0.0
+      ],
+      "state": [
+        423.0,
+        182.0,
+        192.6706085205078,
+        335.1567687988281,
+        2.947699785232544,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "episode_idx": 0,
+      "step_idx": 1,
+      "action": [
+        0.05860595777630806,
+        -0.08608200401067734
+      ],
+      "proprio": [
+        427.139404296875,
+        174.6082000732422,
+        52.380672454833984,
+        -93.53691101074219
+      ],
+      "state": [
+        427.139404296875,
+        174.6082000732422,
+        192.6706085205078,
+        335.1567687988281,
+        2.947699785232544,
+        52.380672454833984,
+        -93.53691101074219
+      ]
+    }
+  ],
+  "image_0": {
+    "byte_count": 5789,
+    "sha256": "a0a94ee44532c32b34822ce85a915fbe25b560c02f7d42544e34de96f4233f5c",
+    "format": "JPEG",
+    "size": [
+      224,
+      224
+    ],
+    "mode": "RGB"
+  },
+  "swm_loader_verified": false,
+  "hdf5_equivalence_verified": false
+}
