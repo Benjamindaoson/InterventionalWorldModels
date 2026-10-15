@@ -30,6 +30,8 @@
 
 ## G0 上游静态预检
 
+远端开发分支在本地审计前已有五个由 GitHub 源码只读检查形成的文档提交（`27bc22e` 至 `776d596`）；当时对 Windows 路径和本地测试明确标为未知。本地核验结果以本文件和 [G0 预检报告](../reports/G0_PRECHECK_2026-10-15.md) 更新，保留远端原提交作为来源历史。先期审计还指出 OpenWAM 等相关研究已使用反事实/同初态监督，后续 G2 不能将这一设置本身声明为首次提出。
+
 官方仓库：[lucas-maes/le-wm](https://github.com/lucas-maes/le-wm)，审计固定提交 `8edfeb336732b5f3ce7b8b210d0ba370a09e2cac`。论文：[arXiv:2603.19312](https://arxiv.org/abs/2603.19312)。上游 MIT License，Copyright (c) 2026 Lucas Maes。没有复制其源码进入本仓库；后续若复制，必须带许可证与修改记录。
 
 已核对 `jepa.py`、`module.py`、`train.py`、`eval.py` 和 Push-T 配置：Encoder 为 ViT，Action Encoder 为 `Embedder`，Predictor 为 `ARPredictor`，`SIGReg` 在 `module.py`，训练损失为下一潜变量 MSE 加加权 SIGReg。论文架构和当前源码配置不能混作同一版本的实测参数。
