@@ -157,7 +157,7 @@ def main() -> None:
                            "mean_regret_vs_oracle_m": float(np.mean([
                                r["final_goal_distance_m"] - oracle[r["scene_id"]] for r in subset]))}
     result = {"protocol": "v2-held-out-closed-loop/v1", "checkpoint": str(args.checkpoint),
-              "checkpoint_source_revision": checkpoint["source_revision"],
+              "checkpoint_source_revision": config["source_revision"],
               "evaluation_source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "observation": "current cube xyz and linear velocity only",
               "model_candidate_information": "current observation, proposed action, checkpoint weights",
