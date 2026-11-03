@@ -145,7 +145,9 @@ def load_arrays(root: Path, split: str, family: str | None = None,
         if split == "test" and family is None:
             raise ValueError("V2 test requires explicit evaluation family")
         family = family or ("train" if split == "train" else "iid_val")
-    records = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(root.glob("cube-*.json"))]
+    paths = (root.glob(f"cube-{family}-*.json")
+             if manifest.get("schema") == "worlddynamics-v2/v1" else root.glob("cube-*.json"))
+    records = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(paths)]
     selected = [r for r in records if r["split"] == split and
                 (family is None or r.get("evaluation_family") == family)]
     if not selected:

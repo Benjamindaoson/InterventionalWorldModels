@@ -12,6 +12,14 @@ from .data import load_arrays, validate
 from .models import make_model
 
 
+def infer_floor_contact(center_z: np.ndarray, box_half_sizes: np.ndarray,
+                        tolerance: float = 0.002) -> np.ndarray:
+    """Approximate cube-plane contact from each scene's box geometry."""
+    if center_z.ndim != 2 or box_half_sizes.shape != (len(center_z),):
+        raise ValueError("expected [branch, time] heights and [branch] half-sizes")
+    return center_z <= box_half_sizes[:, None] + tolerance
+
+
 def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test",
              family: str | None = None) -> dict:
     if split not in {"val", "test"}:
@@ -25,8 +33,8 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test",
     model.eval()
     states, actions = load_arrays(dataset, split, family,
                                   config.get("observation_key", "state"))
-    records = [json.loads(path.read_text(encoding="utf-8"))
-               for path in sorted(dataset.glob("cube-*.json"))]
+    paths = dataset.glob(f"cube-{family}-*.json") if family else dataset.glob("cube-*.json")
+    records = [json.loads(path.read_text(encoding="utf-8")) for path in sorted(paths)]
     records = [record for record in records if record["split"] == split and
                (family is None or record.get("evaluation_family") == family)]
     if len(records) != len(states):
@@ -61,7 +69,11 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test",
                               "horizon_mse": {str(h): float(free_error[indices, h - 1].mean())
                                               for h in (1, 4, 8, 16, 32) if h <= len(errors)}})
         contact_true = np.asarray([r["contact"] for r in records], dtype=bool)
-        contact_pred = (free[..., 2].numpy() <= 0.052)
+        box_half_sizes = np.asarray(
+            [r["physics"].get("box_half_size", 0.05) for r in records],
+            dtype=np.float32,
+        )
+        contact_pred = infer_floor_contact(free[..., 2].numpy(), box_half_sizes)
         tp = int(np.logical_and(contact_pred, contact_true).sum())
         fp = int(np.logical_and(contact_pred, ~contact_true).sum())
         fn = int(np.logical_and(~contact_pred, contact_true).sum())
@@ -83,7 +95,8 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test",
                   "per_scene": per_scene,
                   "action_branch_difference_error_meters": float(np.mean(branch_errors)),
                   "contact_f1": contact_f1, "contact_precision": precision,
-                  "contact_recall": recall, "contact_rule": "predicted cube center z <= 0.052 m",
+                  "contact_recall": recall,
+                  "contact_rule": "predicted cube center z <= scene box_half_size + 0.002 m; approximate floor contact",
                   "calibration": {"status": "NOT_AVAILABLE", "reason": "no calibrated predictive probability"},
                   "psnr": {"status": "NOT_AVAILABLE", "reason": "state-only model"},
                   "planning_success": {"status": "NOT_AVAILABLE", "reason": "planning not evaluated"}}
