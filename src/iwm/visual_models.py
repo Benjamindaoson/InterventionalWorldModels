@@ -87,14 +87,48 @@ class VideoFlow(nn.Module):
             raise ValueError("steps must be positive")
         context = self.codec.encode(initial)
         frames = [initial]
+        past_targets: list[torch.Tensor] = []
+        past_contexts: list[torch.Tensor] = []
         for t in range(actions.shape[1]):
             noisy = torch.randn_like(context).unsqueeze(1)
             for k in range(steps):
-                time = noisy.new_full((len(noisy), 1, 1), k / steps)
-                noisy = noisy + self.velocity_field(noisy, context.unsqueeze(1), actions[:, t:t+1], time) / steps
+                current_time = noisy.new_full((len(noisy), 1, 1), k / steps)
+                if past_targets:
+                    input_seq = torch.cat((*past_targets, noisy), dim=1)
+                    context_seq = torch.cat((*past_contexts, context.unsqueeze(1)), dim=1)
+                    time_seq = torch.cat((noisy.new_ones(len(noisy), t, 1), current_time), dim=1)
+                else:
+                    input_seq = noisy
+                    context_seq = context.unsqueeze(1)
+                    time_seq = current_time
+                velocity = self.velocity_field(input_seq, context_seq, actions[:, :t + 1], time_seq)[:, -1:]
+                noisy = noisy + velocity / steps
+            past_contexts.append(context.unsqueeze(1))
+            past_targets.append(noisy)
             context = noisy[:, 0]
             frames.append(self.codec.decode(context))
         return torch.stack(frames, 1)
+
+    @torch.no_grad()
+    def teacher_force_generate(self, frames: torch.Tensor, actions: torch.Tensor,
+                               steps: int = 8) -> torch.Tensor:
+        """At t, condition only on observed frames through t and actions through t."""
+        if frames.shape[1] != actions.shape[1] + 1 or steps < 1:
+            raise ValueError("frames/actions time mismatch or invalid steps")
+        observed_latent = self.codec.encode(frames)
+        generated = [frames[:, 0]]
+        for t in range(actions.shape[1]):
+            current = torch.randn_like(observed_latent[:, t:t + 1])
+            contexts = observed_latent[:, :t + 1]
+            for k in range(steps):
+                noisy_sequence = torch.cat((observed_latent[:, 1:t + 1], current), 1)
+                times = current.new_ones(len(current), t + 1, 1)
+                times[:, -1] = k / steps
+                velocity = self.velocity_field(noisy_sequence, contexts,
+                                               actions[:, :t + 1], times)[:, -1:]
+                current = current + velocity / steps
+            generated.append(self.codec.decode(current[:, 0]))
+        return torch.stack(generated, 1)
 
 
 class JointWorldAction(nn.Module):

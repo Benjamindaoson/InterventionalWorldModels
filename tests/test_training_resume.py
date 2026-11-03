@@ -4,6 +4,7 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("mujoco")
 
 from iwm.data import generate
+from iwm.evaluation import evaluate
 from iwm.training import train
 
 
@@ -22,3 +23,6 @@ def test_checkpoint_resume(tmp_path):
     assert resumed["epoch"] == 1
     assert resumed["optimizer"]["state"]
     assert resumed["scheduler"]["last_epoch"] > first["scheduler"]["last_epoch"]
+    metrics = evaluate(tmp_path / "resumed" / "last.pt", dataset)
+    assert metrics["one_step_mse"] == metrics["teacher_forcing_mse"]
+    assert len(metrics["per_scene"]) == 1
