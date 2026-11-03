@@ -82,7 +82,8 @@ class VideoFlow(nn.Module):
         return flow + reconstruction
 
     @torch.no_grad()
-    def generate(self, initial: torch.Tensor, actions: torch.Tensor, steps: int = 8) -> torch.Tensor:
+    def generate(self, initial: torch.Tensor, actions: torch.Tensor, steps: int = 8,
+                 paired_noise: bool = False) -> torch.Tensor:
         if steps < 1:
             raise ValueError("steps must be positive")
         context = self.codec.encode(initial)
@@ -90,7 +91,9 @@ class VideoFlow(nn.Module):
         past_targets: list[torch.Tensor] = []
         past_contexts: list[torch.Tensor] = []
         for t in range(actions.shape[1]):
-            noisy = torch.randn_like(context).unsqueeze(1)
+            noise = (torch.randn_like(context[:1]).expand_as(context) if paired_noise
+                     else torch.randn_like(context))
+            noisy = noise.unsqueeze(1)
             for k in range(steps):
                 current_time = noisy.new_full((len(noisy), 1, 1), k / steps)
                 if past_targets:
@@ -111,14 +114,16 @@ class VideoFlow(nn.Module):
 
     @torch.no_grad()
     def teacher_force_generate(self, frames: torch.Tensor, actions: torch.Tensor,
-                               steps: int = 8) -> torch.Tensor:
+                               steps: int = 8, paired_noise: bool = False) -> torch.Tensor:
         """At t, condition only on observed frames through t and actions through t."""
         if frames.shape[1] != actions.shape[1] + 1 or steps < 1:
             raise ValueError("frames/actions time mismatch or invalid steps")
         observed_latent = self.codec.encode(frames)
         generated = [frames[:, 0]]
         for t in range(actions.shape[1]):
-            current = torch.randn_like(observed_latent[:, t:t + 1])
+            shape = observed_latent[:, t:t + 1]
+            current = (torch.randn_like(shape[:1]).expand_as(shape).clone() if paired_noise
+                       else torch.randn_like(shape))
             contexts = observed_latent[:, :t + 1]
             for k in range(steps):
                 noisy_sequence = torch.cat((observed_latent[:, 1:t + 1], current), 1)

@@ -46,6 +46,8 @@ p.add_argument("--dataset", required=True, type=Path)
 p.add_argument("--output", required=True, type=Path)
 p.add_argument("--steps", type=int, default=4)
 p.add_argument("--family", choices=["test", "iid_test", "physics_ood", "geometry_ood"], default="test")
+p.add_argument("--paired-noise", action="store_true",
+               help="share diffusion noise across exact-snapshot action branches")
 a = p.parse_args()
 evidence = validate(a.dataset)
 dataset_schema = json.loads((a.dataset / "manifest.json").read_text(encoding="utf-8")).get("schema")
@@ -75,15 +77,20 @@ with torch.no_grad():
             actions = torch.zeros_like(actions)
         reconstructed = model.codec.decode(model.codec.encode(frames))
         torch.manual_seed(700)
-        forced = model.teacher_force_generate(frames, actions, steps=a.steps)
+        forced = model.teacher_force_generate(frames, actions, steps=a.steps,
+                                               paired_noise=a.paired_noise)
         torch.manual_seed(700)
-        free = model.generate(frames[:, 0], actions, steps=a.steps)
+        free = model.generate(frames[:, 0], actions, steps=a.steps,
+                              paired_noise=a.paired_noise)
         row = {"scene_id": scene, "branches": len(records),
                "reconstruction": frame_metrics(reconstructed, frames),
                "teacher_forced": frame_metrics(forced, frames),
                "free_running": frame_metrics(free, frames),
                "visual_branch_difference_error": float(
-                   ((free[1:] - free[:1]) - (frames[1:] - frames[:1])).abs().mean())}
+                   ((free[1:, 1:] - free[:1, 1:]) -
+                    (frames[1:, 1:] - frames[:1, 1:])).abs().mean()),
+               "predicted_branch_difference_abs": float((free[1:, 1:] - free[:1, 1:]).abs().mean()),
+               "real_branch_difference_abs": float((frames[1:, 1:] - frames[:1, 1:]).abs().mean())}
         scene_rows.append(row)
         with (a.output / f"{scene}.npz").open("xb") as f:
             np.savez_compressed(f, ground_truth=rgb,
@@ -95,12 +102,17 @@ result = {"split": a.family, "dataset": evidence, "checkpoint": str(a.checkpoint
           "source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
           "scenes": len(scene_rows), "branches": sum(r["branches"] for r in scene_rows),
           "flow_euler_steps": a.steps,
+          "paired_noise": a.paired_noise,
           "reference_alignment": f"predicted[t] versus RGB[t], t=1..{len(frames[0]) - 1}; context frame excluded",
           "metrics": {key: {metric: float(np.mean([r[key][metric] for r in scene_rows]))
                              for metric in ("mse", "psnr_db", "ssim")}
                       for key in ("reconstruction", "teacher_forced", "free_running")},
           "visual_branch_difference_error": float(np.mean(
               [r["visual_branch_difference_error"] for r in scene_rows])),
+          "predicted_branch_difference_abs": float(np.mean(
+              [r["predicted_branch_difference_abs"] for r in scene_rows])),
+          "real_branch_difference_abs": float(np.mean(
+              [r["real_branch_difference_abs"] for r in scene_rows])),
           "physical_state_error": {"status": "NOT_AVAILABLE", "reason": "video model has no state head"},
           "per_scene": scene_rows}
 (a.output / "metrics.json").write_text(json.dumps(result, indent=2), encoding="utf-8")

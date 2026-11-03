@@ -58,3 +58,12 @@ def test_joint_independent_modes_do_not_update_unused_heads():
 def test_joint_target_latent_is_bounded():
     model = JointWorldAction(8)
     assert model._latent(torch.ones(1, 2, 3, 32, 32) * 255).abs().max() <= 1
+
+
+def test_video_paired_noise_couples_identical_branches():
+    model = VideoFlow(8).eval()
+    initial = torch.rand(1, 3, 32, 32).expand(2, -1, -1, -1)
+    actions = torch.ones(2, 2, 3)
+    torch.manual_seed(123)
+    predicted = model.generate(initial, actions, steps=2, paired_noise=True)
+    assert torch.equal(predicted[0], predicted[1])

@@ -9,7 +9,10 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.evaluate_v2_planning import initial_scene, oracle_candidate_scores
+if __package__ == "scripts":
+    from scripts.evaluate_v2_planning import initial_scene, oracle_candidate_scores
+else:
+    from evaluate_v2_planning import initial_scene, oracle_candidate_scores
 
 
 def main() -> None:
