@@ -1,5 +1,11 @@
 # WorldDynamics — Reliable Action-Conditioned World Models for Long-Horizon Physical Prediction
 
+## V1.1 research validation (2026-11-03)
+
+V1.1 fixed future-observation leakage in the RSSM, generated 32 scene/224 branch MuJoCo data with held-out physics configurations, and ran five model controls across three seeds. The action-blind baseline had lower free-running state MSE than the action-conditioned and RSSM baselines. Closed-loop learned MPC/CEM also underperformed a physics oracle in six new scenes. These are important negative exploratory results, not evidence of a reliable action-conditioned model. See [V1.1 audit](docs/V11_AUDIT_REPORT.md), [results](docs/V11_BASELINE_RESULTS.md), [horizon/video](docs/V11_LONG_HORIZON_REPORT.md), and [planning](docs/V11_PLANNING_REPORT.md).
+
+Reproduce in fresh output directories with `scripts/generate_v11_data.py`, `scripts/run_v11_baselines.py`, `scripts/summarize_v11.py`, `scripts/train_v11_video.py`, `scripts/evaluate_v11_video.py`, and `scripts/evaluate_v11_planning.py`. Exact commands and split policy are in [V1.1 protocol](docs/V11_EXPERIMENT_PROTOCOL.md). Historical V1 runs below remain available for audit but their RSSM prediction and video metrics are superseded.
+
 世界模型：面向长时序物理预测的可靠动作条件世界模型。
 
 WorldDynamics retains the historical `iwm` package, threshold experiments and paired-replay research. Earlier simplified RGB threshold experiments did **not** establish an advantage for paired-branch supervision. No novel algorithm or published benchmark claim is made.
