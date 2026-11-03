@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
@@ -79,6 +80,7 @@ with torch.no_grad():
                 teacher_forced=(forced.permute(0, 1, 3, 4, 2).numpy() * 255).clip(0, 255).astype(np.uint8),
                 free_running=(free.permute(0, 1, 3, 4, 2).numpy() * 255).clip(0, 255).astype(np.uint8))
 result = {"split": "test", "dataset": evidence, "checkpoint": str(a.checkpoint),
+          "source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
           "scenes": len(scene_rows), "branches": sum(r["branches"] for r in scene_rows),
           "flow_euler_steps": a.steps,
           "reference_alignment": "predicted[t] versus RGB[t], t=1..32; context frame excluded",

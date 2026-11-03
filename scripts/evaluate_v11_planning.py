@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import time
 from pathlib import Path
 
@@ -132,6 +133,7 @@ for policy in ("random", "mpc", "cem"):
     summary[policy]["mean_regret_vs_oracle_m"] = float(np.mean([
         r["final_goal_distance_m"] - oracle[r["scene_id"]] for r in rows if r["policy"] == policy]))
 result = {"status": "CLOSED_LOOP_MUJOCO_PILOT", "checkpoint": str(a.checkpoint),
+          "source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
           "policy_observation": "current cube center xyz only; model proposals use no physics simulator",
           "oracle_access": "full simulator snapshot and candidate future rollouts",
           "control_cycles": 8, "steps_per_cycle": 4, "planning_horizon": 16,

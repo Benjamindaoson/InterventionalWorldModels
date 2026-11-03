@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 
 from iwm.evaluation import evaluate, save_evaluation
@@ -14,6 +15,7 @@ parser.add_argument("--output", required=True, type=Path)
 parser.add_argument("--seeds", type=int, nargs="+", default=[17, 29, 43])
 parser.add_argument("--epochs", type=int, default=10)
 args = parser.parse_args()
+revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 args.output.mkdir(parents=True, exist_ok=False)
 conditions = {
     "blind": {"action_blind": True},
@@ -30,6 +32,7 @@ for seed in args.seeds:
                   "hidden": 32 if label == "rssm" else 96,
                   "dataset": str(args.dataset), "run_dir": str(run_dir),
                   "seed": seed, "epochs": args.epochs, "batch_size": 14,
+                  "source_revision": revision,
                   "lr": 0.001, "patience": args.epochs + 1, "cpu_threads": 2,
                   **overrides}
         manifest = train(config)

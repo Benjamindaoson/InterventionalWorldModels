@@ -132,6 +132,7 @@ def train(config: dict) -> dict:
         if patience >= int(config.get("patience", 5)):
             break
     manifest = {"model": config["model"], "device": str(device), "data": evidence,
+                "source_revision": config.get("source_revision", "NOT_RECORDED"),
                 "best_validation_loss": best, "completed_epochs": epoch + 1,
                 "checkpoint": str(run_dir / "last.pt"), "optimizer_steps": optimizer_steps,
                 "train_samples": len(train_state) * branches_per_scene,

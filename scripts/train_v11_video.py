@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import random
+import subprocess
 import time
 from pathlib import Path
 
@@ -50,6 +51,7 @@ best = float("inf")
 begin = time.perf_counter()
 steps = 0
 manifest_hash = hashlib.sha256((a.dataset / "manifest.json").read_bytes()).hexdigest()
+revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 for epoch in range(a.epochs):
     model.train()
     losses = []
@@ -82,6 +84,7 @@ for epoch in range(a.epochs):
     checkpoint = {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                   "scheduler": scheduler.state_dict(), "epoch": epoch,
                   "seed": a.seed, "dataset_manifest_sha256": manifest_hash,
+                  "source_revision": revision,
                   "torch_rng": torch.get_rng_state(), "numpy_rng": np.random.get_state(),
                   "python_rng": random.getstate()}
     torch.save(checkpoint, a.output / "last.pt")
@@ -90,6 +93,7 @@ for epoch in range(a.epochs):
         torch.save(checkpoint, a.output / "best.pt")
 manifest = {"model": "video_flow", "dataset": str(a.dataset),
             "dataset_manifest_sha256": manifest_hash, "data": evidence,
+            "source_revision": revision,
             "parameter_count": sum(p.numel() for p in model.parameters()),
             "seed": a.seed, "epochs": a.epochs, "batch_size": a.batch_size,
             "optimizer_steps": steps, "best_val_loss": best,
