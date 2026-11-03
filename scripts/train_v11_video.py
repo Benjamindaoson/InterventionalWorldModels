@@ -22,6 +22,7 @@ p.add_argument("--output", type=Path, required=True)
 p.add_argument("--seed", type=int, default=17)
 p.add_argument("--epochs", type=int, default=3)
 p.add_argument("--batch-size", type=int, default=2)
+p.add_argument("--action-blind", action="store_true")
 a = p.parse_args()
 evidence = validate(a.dataset)
 a.output.mkdir(parents=True, exist_ok=False)
@@ -63,6 +64,8 @@ for epoch in range(a.epochs):
     for frames, actions in train_loader:
         frames = frames.to(device).float() / 255
         actions = actions.to(device)
+        if a.action_blind:
+            actions = torch.zeros_like(actions)
         optimizer.zero_grad(set_to_none=True)
         loss = model.loss(frames, actions)
         if not torch.isfinite(loss):
@@ -77,6 +80,8 @@ for epoch in range(a.epochs):
     with torch.random.fork_rng(), torch.no_grad():
         torch.manual_seed(a.seed + 10000)
         for frames, actions in val_loader:
+            if a.action_blind:
+                actions = torch.zeros_like(actions)
             values.append(float(model.loss(frames.to(device).float() / 255,
                                            actions.to(device))))
     val_loss = float(np.mean(values))
@@ -89,7 +94,7 @@ for epoch in range(a.epochs):
     checkpoint = {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                   "scheduler": scheduler.state_dict(), "epoch": epoch,
                   "seed": a.seed, "dataset_manifest_sha256": manifest_hash,
-                  "source_revision": revision,
+                  "source_revision": revision, "action_blind": a.action_blind,
                   "torch_rng": torch.get_rng_state(), "numpy_rng": np.random.get_state(),
                   "python_rng": random.getstate()}
     torch.save(checkpoint, a.output / "last.pt")
@@ -101,6 +106,7 @@ manifest = {"model": "video_flow", "dataset": str(a.dataset),
             "source_revision": revision,
             "parameter_count": sum(p.numel() for p in model.parameters()),
             "seed": a.seed, "epochs": a.epochs, "batch_size": a.batch_size,
+            "action_blind": a.action_blind,
             "optimizer_steps": steps, "best_val_loss": best,
             "wall_seconds": time.perf_counter() - begin, "device": str(device)}
 (a.output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

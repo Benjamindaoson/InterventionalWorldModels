@@ -48,6 +48,9 @@ p.add_argument("--steps", type=int, default=4)
 p.add_argument("--family", choices=["test", "iid_test", "physics_ood", "geometry_ood"], default="test")
 a = p.parse_args()
 evidence = validate(a.dataset)
+dataset_schema = json.loads((a.dataset / "manifest.json").read_text(encoding="utf-8")).get("schema")
+if dataset_schema == "worlddynamics-v2/v1" and a.family == "test":
+    raise ValueError("V2 requires an explicit IID or OOD evaluation family")
 a.output.mkdir(parents=True, exist_ok=False)
 torch.set_num_threads(2)
 checkpoint = torch.load(a.checkpoint, map_location="cpu", weights_only=False)
@@ -68,6 +71,8 @@ with torch.no_grad():
         rgb = np.stack([np.load(a.dataset / r["rgb_file"])["rgb"] for r in records])
         frames = torch.from_numpy(rgb).float().permute(0, 1, 4, 2, 3) / 255
         actions = torch.tensor([r["action_sequence"] for r in records], dtype=torch.float32)
+        if checkpoint.get("action_blind", False):
+            actions = torch.zeros_like(actions)
         reconstructed = model.codec.decode(model.codec.encode(frames))
         torch.manual_seed(700)
         forced = model.teacher_force_generate(frames, actions, steps=a.steps)
@@ -86,6 +91,7 @@ with torch.no_grad():
                 teacher_forced=(forced.permute(0, 1, 3, 4, 2).numpy() * 255).clip(0, 255).astype(np.uint8),
                 free_running=(free.permute(0, 1, 3, 4, 2).numpy() * 255).clip(0, 255).astype(np.uint8))
 result = {"split": a.family, "dataset": evidence, "checkpoint": str(a.checkpoint),
+          "action_blind": checkpoint.get("action_blind", False),
           "source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
           "scenes": len(scene_rows), "branches": sum(r["branches"] for r in scene_rows),
           "flow_euler_steps": a.steps,
