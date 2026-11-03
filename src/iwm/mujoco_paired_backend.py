@@ -9,8 +9,9 @@ import math
 
 
 class MuJoCoCubeBackend:
-    def __init__(self, friction: float = 0.5, timestep: float = 0.005):
-        if not math.isfinite(friction) or friction <= 0 or timestep <= 0:
+    def __init__(self, friction: float = 0.5, timestep: float = 0.005,
+                 mass: float = 1.0):
+        if not math.isfinite(friction) or friction <= 0 or timestep <= 0 or not math.isfinite(mass) or mass <= 0:
             raise ValueError("invalid physical parameters")
         import mujoco
         import numpy as np
@@ -21,7 +22,7 @@ class MuJoCoCubeBackend:
   <geom type="plane" size="2 2 0.1" friction="{friction} 0.005 0.0001"/>
   <body name="cube" pos="0 0 0.05">
     <freejoint/>
-    <geom type="box" size="0.05 0.05 0.05" mass="1" friction="{friction} 0.005 0.0001"/>
+    <geom type="box" size="0.05 0.05 0.05" mass="{mass}" friction="{friction} 0.005 0.0001"/>
   </body>
 </worldbody>
 </mujoco>'''

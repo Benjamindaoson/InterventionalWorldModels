@@ -66,6 +66,8 @@ def generate(root: Path, scenes: int = 12, horizon: int = 16) -> Path:
 
 
 def validate(root: Path) -> dict:
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
     records = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(root.glob("cube-*.json"))]
     if not records:
         raise ValueError("no records")
@@ -93,6 +95,10 @@ def validate(root: Path) -> dict:
             raise ValueError(f"split leakage: {scene}")
         if any(b["state"][0] != branches[0]["state"][0] for b in branches):
             raise ValueError(f"initial observable state mismatch: {scene}")
+        if len({json.dumps(b["physics"], sort_keys=True) for b in branches}) != 1:
+            raise ValueError(f"physics configuration mismatch: {scene}")
+        if manifest.get("schema") == "worlddynamics-v11/v1" and len(branches) != manifest["branches_per_scene"]:
+            raise ValueError(f"incomplete branch group: {scene}")
     initial_by_split: dict[str, str] = {}
     for branches in groups.values():
         record = branches[0]
@@ -100,6 +106,17 @@ def validate(root: Path) -> dict:
         if key in initial_by_split and initial_by_split[key] != record["split"]:
             raise ValueError("identical physical initial state across frozen splits")
         initial_by_split[key] = record["split"]
+    if manifest.get("schema") == "worlddynamics-v11/v1":
+        physics_splits: dict[str, str] = {}
+        for branches in groups.values():
+            record = branches[0]
+            signature = json.dumps(record["physics"], sort_keys=True)
+            prior = physics_splits.get(signature)
+            if prior is not None and prior != record["split"]:
+                raise ValueError("physics configuration leakage across splits")
+            physics_splits[signature] = record["split"]
+        if len(records) != manifest["records"]:
+            raise ValueError("manifest record count mismatch")
     return {"records": len(records), "scenes": len(groups), "splits": validate_scene_isolation(records)}
 
 

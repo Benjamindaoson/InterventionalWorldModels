@@ -33,3 +33,19 @@ def test_rssm_evaluation_is_deterministic():
         first = model(state, action)["prediction"]
         second = model(state, action)["prediction"]
     assert torch.equal(first, second)
+
+
+def test_rssm_causal_prediction_no_future_leakage():
+    model = RSSM(hidden=8, latent=4).eval()
+    state = torch.randn(2, 5, 3)
+    altered = state.clone()
+    altered[:, 1:] += 100
+    action = torch.randn(2, 4, 3)
+    with torch.no_grad():
+        forced = model(state, action, teacher_forcing=True)["prediction"]
+        changed = model(altered, action, teacher_forcing=True)["prediction"]
+        free = model(state, action, teacher_forcing=False)["prediction"]
+        free_changed = model(altered, action, teacher_forcing=False)["prediction"]
+    assert torch.equal(forced[:, 0], changed[:, 0])
+    assert torch.equal(free, free_changed)
+    assert not torch.equal(forced[:, 1:], changed[:, 1:])

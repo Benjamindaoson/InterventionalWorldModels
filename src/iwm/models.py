@@ -27,20 +27,24 @@ class RSSM(nn.Module):
                 teacher_forcing: bool = True) -> dict[str, torch.Tensor]:
         if observations.ndim != 3 or actions.ndim != 3 or observations.shape[:2] != (actions.shape[0], actions.shape[1] + 1):
             raise ValueError("observations [B,T+1,D], actions [B,T,A]")
-        batch, steps, _ = actions.shape
+        steps = actions.shape[1]
         h = self.encoder(observations[:, 0])
-        z = observations.new_zeros(batch, self.latent)
+        # The initial observation is available to both inference modes.
+        initial_posterior = self.distribution(
+            self.posterior(torch.cat((h, self.encoder(observations[:, 0])), -1)))
+        z = initial_posterior.rsample() if self.training else initial_posterior.mean
         predicted, divergences = [], []
         for t in range(steps):
             h = self.recurrent(torch.cat((z, actions[:, t]), -1), h)
             prior = self.distribution(self.prior(h))
+            # Predict x[t+1] from the prior BEFORE observing x[t+1].
+            predicted.append(self.decoder(torch.cat((h, prior.mean), -1)))
             if teacher_forcing:
                 posterior = self.distribution(self.posterior(torch.cat((h, self.encoder(observations[:, t + 1])), -1)))
                 z = posterior.rsample() if self.training else posterior.mean
                 divergences.append(torch.distributions.kl_divergence(posterior, prior).sum(-1))
             else:
                 z = prior.mean
-            predicted.append(self.decoder(torch.cat((h, z), -1)))
         return {"prediction": torch.stack(predicted, 1),
                 "kl": torch.stack(divergences, 1).mean() if divergences else observations.new_zeros(())}
 
