@@ -36,7 +36,7 @@ class RSSM(nn.Module):
             prior = self.distribution(self.prior(h))
             if teacher_forcing:
                 posterior = self.distribution(self.posterior(torch.cat((h, self.encoder(observations[:, t + 1])), -1)))
-                z = posterior.rsample()
+                z = posterior.rsample() if self.training else posterior.mean
                 divergences.append(torch.distributions.kl_divergence(posterior, prior).sum(-1))
             else:
                 z = prior.mean

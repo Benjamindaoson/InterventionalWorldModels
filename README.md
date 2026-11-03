@@ -11,20 +11,20 @@ WorldDynamics retains the historical `iwm` package, threshold experiments and pa
 - From-scratch visual representation, latent video flow matching and joint world/action baselines; one-epoch smoke runs only.
 - Differentiable geometry and a state re-anchoring interface.
 
-Use Python 3.12. Install `numpy mujoco torch pyyaml ruff` and `pip install -e ".[test]"`. Then run:
+Use Python 3.12. Install with `python -m pip install -e ".[test,research]"`. Then run:
 
 ```bash
-python scripts/generate_data.py --output artifacts/mujoco-rgb-v2 --scenes 12 --horizon 16
-python scripts/validate_data.py artifacts/mujoco-rgb-v2
-python scripts/train.py --config configs/models/rssm.yaml --dataset artifacts/mujoco-rgb-v2 --run-dir artifacts/rssm-v2
-python scripts/train.py --config configs/models/action_predictor.yaml --dataset artifacts/mujoco-rgb-v2 --run-dir artifacts/action-v2
-python scripts/evaluate.py --checkpoint artifacts/rssm-v2/last.pt --dataset artifacts/mujoco-rgb-v2 --output results/rssm-v2-test.json
-python scripts/train.py --config configs/models/video_flow.yaml --dataset artifacts/mujoco-rgb-v2 --run-dir artifacts/video-v2
-python scripts/generate_video.py --checkpoint artifacts/video-v2/last.pt --dataset artifacts/mujoco-rgb-v2 --output artifacts/video-v2-sample.npz
+python scripts/generate_data.py --output artifacts/mujoco-rgb-v3 --scenes 12 --horizon 16
+python scripts/validate_data.py artifacts/mujoco-rgb-v3
+python scripts/train.py --config configs/models/rssm.yaml --dataset artifacts/mujoco-rgb-v3 --run-dir artifacts/rssm-v3
+python scripts/train.py --config configs/models/action_predictor.yaml --dataset artifacts/mujoco-rgb-v3 --run-dir artifacts/action-v3
+python scripts/evaluate.py --checkpoint artifacts/rssm-v3/last.pt --dataset artifacts/mujoco-rgb-v3 --output results/rssm-v3-deterministic-test.json
+python scripts/train.py --config configs/models/video_flow.yaml --dataset artifacts/mujoco-rgb-v3 --run-dir artifacts/video-v3
+python scripts/generate_video.py --checkpoint artifacts/video-v3/last.pt --dataset artifacts/mujoco-rgb-v3 --output artifacts/video-v3-sample.npz
 python -m pytest -q
 ```
 
-Outputs must use new paths. The local pilot used 12 scenes (8 train, 2 validation, 2 test), 36 action branches and 16 steps. On six test branches, RSSM one-step/free-running MSE was 0.009637/0.001731; deterministic predictor MSE was 0.002513/0.169207. The video sample had 17 frames and 14.33 dB PSNR. These are single-seed pilot measurements, not benchmark conclusions. `pytest`: 43 passed. See `docs/IMPLEMENTATION_STATUS.md` for limits.
+Outputs must use new paths. The local pilot used 12 scenes (8 train, 2 validation, 2 test), 36 action branches and 16 steps. On six test branches, RSSM one-step/free-running MSE was 0.003509/0.001731; deterministic predictor MSE was 0.002513/0.169207. The video sample had 17 frames and 14.33 dB PSNR. These are single-seed pilot measurements, not benchmark conclusions. `pytest`: 44 passed. See `docs/IMPLEMENTATION_STATUS.md` for limits.
 
 ## Historical project statement
 

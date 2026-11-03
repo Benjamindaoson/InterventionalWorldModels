@@ -78,6 +78,8 @@ def validate(root: Path) -> dict:
         raw = json.dumps(record, sort_keys=True, allow_nan=False).encode()
         if hashlib.sha256(raw).hexdigest() != artifact_hash:
             raise ValueError("artifact hash mismatch")
+        if hashlib.sha256(bytes.fromhex(record["initial_state_hex"])).hexdigest() != record["initial_state_sha256"]:
+            raise ValueError("initial state hash mismatch")
         if "rgb_file" in record:
             rgb_path = root / record["rgb_file"]
             if not rgb_path.is_file() or hashlib.sha256(rgb_path.read_bytes()).hexdigest() != record["rgb_sha256"]:
@@ -89,6 +91,8 @@ def validate(root: Path) -> dict:
             raise ValueError(f"invalid paired state: {scene}")
         if len({b["split"] for b in branches}) != 1:
             raise ValueError(f"split leakage: {scene}")
+        if any(b["state"][0] != branches[0]["state"][0] for b in branches):
+            raise ValueError(f"initial observable state mismatch: {scene}")
     initial_by_split: dict[str, str] = {}
     for branches in groups.values():
         record = branches[0]

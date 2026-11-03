@@ -23,3 +23,13 @@ def test_dataset_rejects_tamper(tmp_path):
     (tmp_path / "cube-0.json").write_text(json.dumps(record))
     with pytest.raises(ValueError, match="artifact hash"):
         validate(tmp_path)
+
+
+def test_rssm_evaluation_is_deterministic():
+    model = RSSM(hidden=8, latent=4).eval()
+    state = torch.randn(2, 4, 3)
+    action = torch.randn(2, 3, 3)
+    with torch.no_grad():
+        first = model(state, action)["prediction"]
+        second = model(state, action)["prediction"]
+    assert torch.equal(first, second)

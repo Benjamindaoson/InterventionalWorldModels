@@ -23,6 +23,8 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test") -> dict:
     with torch.no_grad():
         target = torch.from_numpy(states)
         control = torch.from_numpy(actions)
+        if config.get("action_blind", False):
+            control = torch.zeros_like(control)
         forced = model(target, control, teacher_forcing=True)["prediction"]
         free = model(target, control, teacher_forcing=False)["prediction"]
         actual = target[:, 1:]

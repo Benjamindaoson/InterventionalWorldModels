@@ -12,12 +12,12 @@ p = argparse.ArgumentParser()
 p.add_argument("--dataset", type=Path, required=True)
 p.add_argument("--output", type=Path, required=True)
 a = p.parse_args()
-for shuffled in (False, True):
-    label = "shuffled" if shuffled else "conditioned"
+for label in ("conditioned", "shuffled", "blind", "paired"):
     run_dir = a.output / label
     config = {"model": "action_predictor", "dataset": str(a.dataset), "run_dir": str(run_dir),
-              "seed": 17, "hidden": 32, "epochs": 5, "batch_size": 8, "lr": 0.001,
-              "shuffle_actions": shuffled}
+              "seed": 17, "hidden": 32, "epochs": 5, "batch_size": 6, "lr": 0.001,
+              "shuffle_actions": label == "shuffled", "action_blind": label == "blind",
+              "pair_weight": 0.1 if label == "paired" else 0.0}
     train(config)
     result = evaluate(run_dir / "last.pt", a.dataset)
     save_evaluation(result, a.output / f"{label}-test.json")

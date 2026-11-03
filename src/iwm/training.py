@@ -50,8 +50,15 @@ def train(config: dict) -> dict:
         raise ValueError("resume checkpoint already reached requested epochs")
     train_state, train_action = load_arrays(dataset, "train")
     val_state, val_action = load_arrays(dataset, "val")
+    pair_weight = float(config.get("pair_weight", 0.0))
+    if pair_weight:
+        if len(train_state) % 3 or not np.allclose(train_state.reshape(-1, 3, *train_state.shape[1:])[:, :, 0],
+                                                   train_state.reshape(-1, 3, *train_state.shape[1:])[:, :1, 0]):
+            raise ValueError("paired training requires complete same-state 3-branch scenes")
+        train_state = train_state.reshape(-1, 3, *train_state.shape[1:])
+        train_action = train_action.reshape(-1, 3, *train_action.shape[1:])
     loader = DataLoader(TensorDataset(torch.from_numpy(train_state), torch.from_numpy(train_action)),
-                        batch_size=int(config.get("batch_size", 8)), shuffle=True)
+                        batch_size=max(1, int(config.get("batch_size", 8)) // (3 if pair_weight else 1)), shuffle=True)
     val_state = torch.from_numpy(val_state).to(device)
     val_action = torch.from_numpy(val_action).to(device)
     log_path = run_dir / "metrics.jsonl"
@@ -62,9 +69,20 @@ def train(config: dict) -> dict:
         optimizer.zero_grad(set_to_none=True)
         accumulation = int(config.get("accumulation", 1))
         for index, (state, action) in enumerate(loader):
+            if pair_weight:
+                scene_count, branches = state.shape[:2]
+                state = state.flatten(0, 1)
+                action = action.flatten(0, 1)
             if config.get("shuffle_actions", False):
                 action = action[torch.randperm(len(action))]
+            if config.get("action_blind", False):
+                action = torch.zeros_like(action)
             loss = model.loss(state.to(device), action.to(device))
+            if pair_weight:
+                prediction = model(state.to(device), action.to(device))["prediction"][:, -1].reshape(scene_count, branches, -1)
+                actual = state[:, -1].to(device).reshape(scene_count, branches, -1)
+                loss = loss + pair_weight * torch.nn.functional.mse_loss(
+                    prediction[:, 1:] - prediction[:, :1], actual[:, 1:] - actual[:, :1])
             if not torch.isfinite(loss):
                 raise FloatingPointError("nonfinite loss")
             (loss / accumulation).backward()
