@@ -31,3 +31,25 @@ def test_video_teacher_force_no_future_frame_leakage():
     torch.manual_seed(5)
     second = model.teacher_force_generate(changed, actions, steps=2)
     assert torch.equal(first[:, 1], second[:, 1])
+
+
+def test_joint_inverse_action_has_no_action_input():
+    model = JointWorldAction(8).eval()
+    frames = torch.rand(1, 3, 3, 32, 32)
+    actions = torch.zeros(1, 2, 3)
+    predicted_action = model.predict_actions(frames)
+    assert predicted_action.shape == actions.shape
+    world = model.predict_world(frames[:, :-1], actions)
+    changed = frames.clone()
+    changed[:, -1] = 0
+    assert torch.equal(world, model.predict_world(changed[:, :-1], actions))
+
+
+def test_joint_independent_modes_do_not_update_unused_heads():
+    frames = torch.rand(1, 3, 3, 32, 32)
+    actions = torch.rand(1, 2, 3)
+    for world_weight, action_weight, unused in ((1., 0., "action_head"),
+                                                (0., 1., "world_head")):
+        model = JointWorldAction(8)
+        model.loss(frames, actions, world_weight, action_weight).backward()
+        assert all(parameter.grad is None for parameter in getattr(model, unused).parameters())

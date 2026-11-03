@@ -132,7 +132,7 @@ class VideoFlow(nn.Module):
 
 
 class JointWorldAction(nn.Module):
-    """Predict next world token and action jointly from current and next images."""
+    """Shared visual context; inverse action never observes the target action."""
     def __init__(self, width: int = 32):
         super().__init__()
         self.visual = FrameAutoencoder(width)
@@ -146,9 +146,26 @@ class JointWorldAction(nn.Module):
         latent = self.visual.encode(frames)
         current = latent[:, :-1]
         future = latent[:, 1:]
-        hidden, _ = self.joint(current + self.action_encoder(actions))
-        predicted_world = self.world_head(torch.cat((hidden, self.action_encoder(actions)), -1))
-        predicted_action = self.action_head(torch.cat((hidden, future), -1))
-        return (world_weight * F.mse_loss(predicted_world, future.detach())
-                + action_weight * F.mse_loss(predicted_action, actions)
-                + 0.1 * F.mse_loss(self.visual.decode(latent), frames))
+        hidden, _ = self.joint(current)
+        loss = 0.1 * F.mse_loss(self.visual.decode(latent), frames)
+        if world_weight:
+            predicted_world = self.world_head(torch.cat((hidden, self.action_encoder(actions / 10)), -1))
+            loss = loss + world_weight * F.mse_loss(predicted_world, future.detach())
+        if action_weight:
+            predicted_action = self.action_head(torch.cat((hidden, future), -1))
+            loss = loss + action_weight * F.mse_loss(predicted_action, actions / 10)
+        return loss
+
+    def predict_world(self, observed_frames: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        """Teacher-forced next latent, using only frames through the current step."""
+        if observed_frames.shape[1] != actions.shape[1]:
+            raise ValueError("current frame/action length mismatch")
+        current = self.visual.encode(observed_frames)
+        hidden, _ = self.joint(current)
+        return self.world_head(torch.cat((hidden, self.action_encoder(actions / 10)), -1))
+
+    def predict_actions(self, frames: torch.Tensor) -> torch.Tensor:
+        """Inverse dynamics from adjacent frames; no action input is accepted."""
+        latent = self.visual.encode(frames)
+        hidden, _ = self.joint(latent[:, :-1])
+        return self.action_head(torch.cat((hidden, latent[:, 1:]), -1)) * 10
