@@ -30,12 +30,17 @@ np.random.seed(a.seed)
 torch.manual_seed(a.seed)
 torch.set_num_threads(2)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-records = [json.loads(path.read_text(encoding="utf-8"))
-           for path in sorted(a.dataset.glob("cube-*.json"))]
+dataset_schema = json.loads((a.dataset / "manifest.json").read_text(encoding="utf-8"))["schema"]
+if dataset_schema.startswith("worlddynamics-v2/"):
+    paths = [path for family in ("train", "iid_val")
+             for path in sorted(a.dataset.glob(f"cube-{family}-*.json"))]
+else:
+    paths = sorted(a.dataset.glob("cube-*.json"))
+records = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
 
 
 def make_loader(split: str, shuffle: bool) -> DataLoader:
-    selected = [r for r in records if r["split"] == split]
+    selected = [r for r in records if r.get("evaluation_family", r["split"]) == split]
     rgb = np.stack([np.load(a.dataset / r["rgb_file"])["rgb"] for r in selected])
     frames = torch.from_numpy(rgb).permute(0, 1, 4, 2, 3)
     actions = torch.tensor([r["action_sequence"] for r in selected], dtype=torch.float32)
@@ -43,7 +48,7 @@ def make_loader(split: str, shuffle: bool) -> DataLoader:
 
 
 train_loader = make_loader("train", True)
-val_loader = make_loader("val", False)
+val_loader = make_loader("iid_val" if dataset_schema.startswith("worlddynamics-v2/") else "val", False)
 model = VideoFlow().to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=a.epochs)

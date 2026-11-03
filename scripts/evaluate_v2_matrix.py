@@ -32,7 +32,7 @@ scene_rows = []
 
 def family_records(family: str) -> dict[str, list[dict]]:
     groups = defaultdict(list)
-    for path in sorted(a.dataset.glob("cube-*.json")):
+    for path in sorted(a.dataset.glob(f"cube-{family}-*.json")):
         record = json.loads(path.read_text(encoding="utf-8"))
         if record["evaluation_family"] == family:
             groups[record["scene_id"]].append(record)
@@ -114,7 +114,7 @@ for family in a.families:
             "free_position_mse_mean": float(np.mean([r["free_position_mse"] for r in selected])),
             "counterfactual_delta_mse_mean": float(np.mean([r["counterfactual_delta_mse"] for r in selected]))}
     if family == "confirmatory":
-        names = sorted(groups)
+        names = sorted(family_records(family))
         differences = []
         for scene in names:
             blind = np.mean([r["counterfactual_delta_mse"] for r in scene_rows
