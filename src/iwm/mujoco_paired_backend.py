@@ -33,6 +33,7 @@ class MuJoCoCubeBackend:
 
     def reset(self, seed: int) -> None:
         self.mujoco.mj_resetData(self.model, self.data)
+        self.data.qpos[0] = (seed % 13) * 0.015
         self.data.xfrc_applied[:] = 0
         self.mujoco.mj_forward(self.model, self.data)
 
@@ -59,3 +60,23 @@ class MuJoCoCubeBackend:
         displacement = float(self.np.linalg.norm(self.data.xpos[self.body_id, :2] - start[:2]))
         return {"displacement": displacement, "event": displacement > 0.005,
                 "final_state": self.data.xpos[self.body_id].tolist(), "steps": horizon}
+
+    def trajectory(self, action: tuple[float, ...], horizon: int, renderer=None) -> dict:
+        """Record actual MuJoCo state at every step after an exact restore."""
+        if len(action) != 3 or horizon < 1:
+            raise ValueError("expected 3D force and positive horizon")
+        positions, velocities, contacts, frames = [], [], [], []
+        if renderer is not None:
+            renderer.update_scene(self.data)
+            frames.append(renderer.render().copy())
+        for _ in range(horizon):
+            self.data.xfrc_applied[self.body_id, :3] = action
+            self.mujoco.mj_step(self.model, self.data)
+            positions.append(self.data.xpos[self.body_id].copy().tolist())
+            velocities.append(self.data.cvel[self.body_id, 3:].copy().tolist())
+            contacts.append(int(self.data.ncon > 0))
+            if renderer is not None:
+                renderer.update_scene(self.data)
+                frames.append(renderer.render().copy())
+        return {"position": positions, "velocity": velocities, "contact": contacts,
+                "rgb": frames}

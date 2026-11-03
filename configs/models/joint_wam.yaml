@@ -1,0 +1,5 @@
+model: joint_wam
+dataset: artifacts/mujoco-rgb-v1
+run_dir: artifacts/joint-run
+seed: 17
+epochs: 1

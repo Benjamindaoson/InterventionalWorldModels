@@ -1,0 +1,10 @@
+model: action_predictor
+dataset: artifacts/mujoco-v1
+run_dir: artifacts/action-run
+seed: 17
+hidden: 32
+epochs: 5
+batch_size: 8
+lr: 0.001
+grad_clip: 1.0
+patience: 5

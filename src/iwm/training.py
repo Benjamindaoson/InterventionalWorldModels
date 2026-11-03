@@ -1,0 +1,102 @@
+"""Config-driven CPU/CUDA training with resumable optimizer and RNG state."""
+from __future__ import annotations
+
+import json
+import random
+import time
+from pathlib import Path
+
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+from .data import load_arrays, validate
+from .models import make_model
+
+
+def seed_all(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def train(config: dict) -> dict:
+    dataset = Path(config["dataset"])
+    evidence = validate(dataset)
+    run_dir = Path(config["run_dir"])
+    run_dir.mkdir(parents=True, exist_ok=False)
+    seed_all(int(config.get("seed", 17)))
+    device = torch.device("cuda" if torch.cuda.is_available() and config.get("device", "auto") != "cpu" else "cpu")
+    model = make_model(config["model"], int(config.get("hidden", 64))).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=float(config.get("lr", 1e-3)))
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(config.get("epochs", 5)))
+    start_epoch = 0
+    best = float("inf")
+    patience = 0
+    if config.get("resume"):
+        checkpoint = torch.load(config["resume"], map_location=device, weights_only=False)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
+        torch.set_rng_state(checkpoint["torch_rng"])
+        np.random.set_state(checkpoint["numpy_rng"])
+        random.setstate(checkpoint["python_rng"])
+        start_epoch = checkpoint["epoch"] + 1
+        best = float(checkpoint.get("best_validation_loss", float("inf")))
+        patience = int(checkpoint.get("patience", 0))
+    if start_epoch >= int(config.get("epochs", 5)):
+        raise ValueError("resume checkpoint already reached requested epochs")
+    train_state, train_action = load_arrays(dataset, "train")
+    val_state, val_action = load_arrays(dataset, "val")
+    loader = DataLoader(TensorDataset(torch.from_numpy(train_state), torch.from_numpy(train_action)),
+                        batch_size=int(config.get("batch_size", 8)), shuffle=True)
+    val_state = torch.from_numpy(val_state).to(device)
+    val_action = torch.from_numpy(val_action).to(device)
+    log_path = run_dir / "metrics.jsonl"
+    begin = time.perf_counter()
+    for epoch in range(start_epoch, int(config.get("epochs", 5))):
+        model.train()
+        losses = []
+        optimizer.zero_grad(set_to_none=True)
+        accumulation = int(config.get("accumulation", 1))
+        for index, (state, action) in enumerate(loader):
+            if config.get("shuffle_actions", False):
+                action = action[torch.randperm(len(action))]
+            loss = model.loss(state.to(device), action.to(device))
+            if not torch.isfinite(loss):
+                raise FloatingPointError("nonfinite loss")
+            (loss / accumulation).backward()
+            if (index + 1) % accumulation == 0 or index + 1 == len(loader):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), float(config.get("grad_clip", 1.0)))
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+            losses.append(float(loss.detach()))
+        model.eval()
+        with torch.no_grad():
+            validation = float(model.loss(val_state, val_action))
+        if not np.isfinite(validation):
+            raise FloatingPointError("nonfinite validation")
+        scheduler.step()
+        row = {"epoch": epoch, "train_loss": float(np.mean(losses)), "val_loss": validation,
+               "elapsed_seconds": time.perf_counter() - begin}
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+        if validation < best:
+            best, patience = validation, 0
+            torch.save(model.state_dict(), run_dir / "best.pt")
+        else:
+            patience += 1
+        torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(), "epoch": epoch,
+                    "torch_rng": torch.get_rng_state(), "numpy_rng": np.random.get_state(),
+                    "python_rng": random.getstate(), "config": config, "dataset": evidence,
+                    "best_validation_loss": best, "patience": patience}, run_dir / "last.pt")
+        if patience >= int(config.get("patience", 5)):
+            break
+    manifest = {"model": config["model"], "device": str(device), "data": evidence,
+                "best_validation_loss": best, "completed_epochs": epoch + 1,
+                "checkpoint": str(run_dir / "last.pt")}
+    (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return manifest
