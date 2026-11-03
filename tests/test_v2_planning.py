@@ -22,6 +22,9 @@ def test_model_scores_use_only_current_state_and_candidate_actions():
                                                  np.array([0.005, 0.]), 4)
     assert scores[1] < 1e-7
     assert prediction.shape == (2, 3)
+    blind_scores, _ = model_candidate_scores(SpyModel(), state, actions,
+                                               np.array([0.005, 0.]), 4, action_blind=True)
+    assert blind_scores[0] == blind_scores[1]
 
 
 def test_oracle_restores_exact_physics_snapshot():

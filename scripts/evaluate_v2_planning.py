@@ -20,10 +20,12 @@ DISCRETE_ACTIONS = np.asarray(((0., 0., 0.), (5., 0., 0.), (-5., 0., 0.),
 
 def model_candidate_scores(model: torch.nn.Module, current_state: np.ndarray,
                            candidates: np.ndarray, goal_xy: np.ndarray,
-                           horizon: int) -> tuple[np.ndarray, np.ndarray]:
+                           horizon: int, action_blind: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """Score candidate forces without a simulator or any future observation."""
     initial = torch.as_tensor(current_state, dtype=torch.float32).expand(len(candidates), -1)
     controls = torch.as_tensor(candidates, dtype=torch.float32)[:, None].expand(-1, horizon, -1)
+    if action_blind:
+        controls = torch.zeros_like(controls)
     placeholder = initial[:, None].expand(-1, horizon + 1, -1)
     with torch.no_grad():
         prediction = model(placeholder, controls, teacher_forcing=False)["prediction"]
@@ -63,7 +65,7 @@ def initial_scene(index: int) -> tuple[MuJoCoCubeBackend, np.ndarray, dict]:
 
 
 def run_episode(scene: int, policy: str, model: torch.nn.Module | None,
-                rng: np.random.Generator) -> dict:
+                rng: np.random.Generator, action_blind: bool = False) -> dict:
     backend, goal, metadata = initial_scene(scene)
     actions, latencies, errors, exploitation = [], [], [], 0
     cycles, steps_per_cycle = 8, 4
@@ -84,7 +86,7 @@ def run_episode(scene: int, policy: str, model: torch.nn.Module | None,
             if model is None:
                 raise ValueError("MPC requires a learned model")
             scores, predictions = model_candidate_scores(model, current, DISCRETE_ACTIONS,
-                                                          goal, steps_per_cycle)
+                                                          goal, steps_per_cycle, action_blind)
             best = int(np.argmin(scores))
             action, selected_prediction = DISCRETE_ACTIONS[best], predictions[best]
         elif policy == "cem":
@@ -95,7 +97,7 @@ def run_episode(scene: int, policy: str, model: torch.nn.Module | None,
                 sampled = np.clip(rng.normal(mean, scale, (24, 2)), -10, 10)
                 candidates = np.column_stack((sampled, np.zeros(len(sampled)))).astype(np.float32)
                 scores, predictions = model_candidate_scores(model, current, candidates,
-                                                              goal, steps_per_cycle)
+                                                              goal, steps_per_cycle, action_blind)
                 elite = sampled[np.argsort(scores)[:6]]
                 mean, scale = elite.mean(0), np.maximum(elite.std(0), 0.3)
             best = int(np.argmin(scores))
@@ -139,7 +141,8 @@ def main() -> None:
     for scene in range(args.scenes):
         for policy in ("random", "oracle", "mpc", "cem"):
             rows.append(run_episode(scene, policy, model if policy in {"mpc", "cem"} else None,
-                                    np.random.default_rng(90000 + scene)))
+                                    np.random.default_rng(90000 + scene),
+                                    bool(config.get("action_blind", False))))
     summary = {}
     oracle = {r["scene_id"]: r["final_goal_distance_m"] for r in rows if r["policy"] == "oracle"}
     for policy in ("random", "oracle", "mpc", "cem"):
@@ -158,6 +161,7 @@ def main() -> None:
               "evaluation_source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "observation": "current cube xyz and linear velocity only",
               "model_candidate_information": "current observation, proposed action, checkpoint weights",
+              "action_blind": bool(config.get("action_blind", False)),
               "oracle_candidate_information": "full MuJoCo snapshot and exact candidate rollout",
               "control_cycles": 8, "steps_per_cycle": 4, "success_radius_m": 0.015,
               "summary": summary, "episodes": rows}
