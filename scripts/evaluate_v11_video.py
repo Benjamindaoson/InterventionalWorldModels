@@ -36,6 +36,7 @@ def frame_metrics(predicted: torch.Tensor, target: torch.Tensor) -> dict:
     frame_ssim = frame_ssim.reshape(len(p), p.shape[1]).mean(0).numpy()
     return {"mse": float(mse.mean()), "psnr_db": float(-10 * math.log10(max(float(mse.mean()), 1e-12))),
             "ssim": float(frame_ssim.mean()), "mse_by_frame": mse.tolist(),
+            "psnr_db_by_frame": (-10 * np.log10(np.maximum(mse, 1e-12))).tolist(),
             "ssim_by_frame": frame_ssim.tolist()}
 
 
