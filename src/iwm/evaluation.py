@@ -12,19 +12,23 @@ from .data import load_arrays, validate
 from .models import make_model
 
 
-def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test") -> dict:
+def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test",
+             family: str | None = None) -> dict:
     if split not in {"val", "test"}:
         raise ValueError("frozen evaluation requires val or test split")
     evidence = validate(dataset)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     config = checkpoint["config"]
-    model = make_model(config["model"], int(config.get("hidden", 64)))
+    model = make_model(config["model"], int(config.get("hidden", 64)),
+                       int(config.get("obs_dim", 3)))
     model.load_state_dict(checkpoint["model"])
     model.eval()
-    states, actions = load_arrays(dataset, split)
+    states, actions = load_arrays(dataset, split, family,
+                                  config.get("observation_key", "state"))
     records = [json.loads(path.read_text(encoding="utf-8"))
                for path in sorted(dataset.glob("cube-*.json"))]
-    records = [record for record in records if record["split"] == split]
+    records = [record for record in records if record["split"] == split and
+               (family is None or record.get("evaluation_family") == family)]
     if len(records) != len(states):
         raise ValueError("record/array alignment mismatch")
     with torch.no_grad():
@@ -35,8 +39,8 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test") -> dict:
         forced = model(target, control, teacher_forcing=True)["prediction"]
         free = model(target, control, teacher_forcing=False)["prediction"]
         actual = target[:, 1:]
-        forced_error = (forced - actual) ** 2
-        free_error = (free - actual) ** 2
+        forced_error = (forced[..., :3] - actual[..., :3]) ** 2
+        free_error = (free[..., :3] - actual[..., :3]) ** 2
         errors = free_error.mean(dim=(0, 2)).numpy().tolist()
         horizons = {str(h): errors[h - 1] for h in (1, 4, 8, 16, 32) if h <= len(errors)}
         scene_indices: dict[str, list[int]] = defaultdict(list)
@@ -45,8 +49,8 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test") -> dict:
         per_scene = []
         branch_errors = []
         for scene_id, indices in scene_indices.items():
-            predicted_end = free[indices, -1].numpy()
-            true_end = actual[indices, -1].numpy()
+            predicted_end = free[indices, -1, :3].numpy()
+            true_end = actual[indices, -1, :3].numpy()
             branch_errors.extend(np.linalg.norm(
                 (predicted_end[1:] - predicted_end[:1]) -
                 (true_end[1:] - true_end[:1]), axis=-1).tolist())
@@ -64,13 +68,17 @@ def evaluate(checkpoint_path: Path, dataset: Path, split: str = "test") -> dict:
         precision = tp / (tp + fp) if tp + fp else None
         recall = tp / (tp + fn) if tp + fn else None
         contact_f1 = (2 * tp / (2 * tp + fp + fn)) if 2 * tp + fp + fn else None
-        result = {"split": split, "dataset": evidence, "checkpoint": str(checkpoint_path),
+        result = {"split": split, "evaluation_family": family,
+                  "observation_key": config.get("observation_key", "state"),
+                  "dataset": evidence, "checkpoint": str(checkpoint_path),
                   "samples": len(states), "scenes": len(scene_indices),
                   "one_step_mse": float(forced_error.mean()),
-                  "one_step_mae": float((forced - actual).abs().mean()),
+                  "one_step_mae": float((forced[..., :3] - actual[..., :3]).abs().mean()),
                   "first_step_mse": float(forced_error[:, 0].mean()),
-                  "teacher_forcing_mse": float(((forced - actual) ** 2).mean()),
-                  "free_running_mse": float(((free - actual) ** 2).mean()),
+                  "teacher_forcing_mse": float(forced_error.mean()),
+                  "free_running_mse": float(free_error.mean()),
+                  "velocity_mse": (float(((free[..., 3:] - actual[..., 3:]) ** 2).mean())
+                                   if actual.shape[-1] > 3 else None),
                   "drift_mse_by_horizon": errors, "horizon_mse": horizons,
                   "per_scene": per_scene,
                   "action_branch_difference_error_meters": float(np.mean(branch_errors)),

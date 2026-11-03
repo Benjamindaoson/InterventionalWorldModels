@@ -77,9 +77,9 @@ class ActionPredictor(nn.Module):
         return F.mse_loss(self(observations, actions)["prediction"], observations[:, 1:])
 
 
-def make_model(name: str, hidden: int = 64) -> nn.Module:
+def make_model(name: str, hidden: int = 64, obs_dim: int = 3) -> nn.Module:
     if name == "rssm":
-        return RSSM(hidden=hidden)
+        return RSSM(obs_dim=obs_dim, hidden=hidden)
     if name == "action_predictor":
-        return ActionPredictor(hidden=hidden)
+        return ActionPredictor(obs_dim=obs_dim, hidden=hidden)
     raise ValueError(f"unknown model: {name}")

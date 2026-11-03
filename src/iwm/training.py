@@ -33,7 +33,8 @@ def train(config: dict) -> dict:
     if config.get("cpu_threads"):
         torch.set_num_threads(min(int(config["cpu_threads"]), os.cpu_count() or 1))
     device = torch.device("cuda" if torch.cuda.is_available() and config.get("device", "auto") != "cpu" else "cpu")
-    model = make_model(config["model"], int(config.get("hidden", 64))).to(device)
+    model = make_model(config["model"], int(config.get("hidden", 64)),
+                       int(config.get("obs_dim", 3))).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(config.get("lr", 1e-3)))
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(config.get("epochs", 5)))
     start_epoch = 0
@@ -52,8 +53,9 @@ def train(config: dict) -> dict:
         patience = int(checkpoint.get("patience", 0))
     if start_epoch >= int(config.get("epochs", 5)):
         raise ValueError("resume checkpoint already reached requested epochs")
-    train_state, train_action = load_arrays(dataset, "train")
-    val_state, val_action = load_arrays(dataset, "val")
+    observation_key = config.get("observation_key", "state")
+    train_state, train_action = load_arrays(dataset, "train", observation_key=observation_key)
+    val_state, val_action = load_arrays(dataset, "val", observation_key=observation_key)
     pair_weight = float(config.get("pair_weight", 0.0))
     if pair_weight:
         manifest = json.loads((dataset / "manifest.json").read_text(encoding="utf-8"))

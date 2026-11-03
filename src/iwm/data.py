@@ -97,7 +97,7 @@ def validate(root: Path) -> dict:
             raise ValueError(f"initial observable state mismatch: {scene}")
         if len({json.dumps(b["physics"], sort_keys=True) for b in branches}) != 1:
             raise ValueError(f"physics configuration mismatch: {scene}")
-        if manifest.get("schema") == "worlddynamics-v11/v1" and len(branches) != manifest["branches_per_scene"]:
+        if manifest.get("schema") in {"worlddynamics-v11/v1", "worlddynamics-v2/v1"} and len(branches) != manifest["branches_per_scene"]:
             raise ValueError(f"incomplete branch group: {scene}")
     initial_by_split: dict[str, str] = {}
     for branches in groups.values():
@@ -117,14 +117,38 @@ def validate(root: Path) -> dict:
             physics_splits[signature] = record["split"]
         if len(records) != manifest["records"]:
             raise ValueError("manifest record count mismatch")
+    if manifest.get("schema") == "worlddynamics-v2/v1":
+        families: dict[str, set[str]] = {}
+        for branches in groups.values():
+            record = branches[0]
+            if len({b["evaluation_family"] for b in branches}) != 1:
+                raise ValueError("family mismatch inside scene")
+            signature = json.dumps(record["physics"], sort_keys=True)
+            families.setdefault(signature, set()).add(record["evaluation_family"])
+            if len(record["dynamics_state"]) != len(record["state"]) or any(len(s) != 6 for s in record["dynamics_state"]):
+                raise ValueError("invalid position/velocity state")
+            if len(record["contact"]) != len(record["action_sequence"]):
+                raise ValueError("contact/action time mismatch")
+        for members in families.values():
+            if members - {"train", "iid_val", "iid_test"} and len(members) > 1:
+                raise ValueError("OOD or confirmatory physics configuration leakage")
+        if len(records) != manifest["records"]:
+            raise ValueError("manifest record count mismatch")
     return {"records": len(records), "scenes": len(groups), "splits": validate_scene_isolation(records)}
 
 
-def load_arrays(root: Path, split: str) -> tuple[np.ndarray, np.ndarray]:
+def load_arrays(root: Path, split: str, family: str | None = None,
+                observation_key: str = "state") -> tuple[np.ndarray, np.ndarray]:
     validate(root)
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8")) if (root / "manifest.json").exists() else {}
+    if manifest.get("schema") == "worlddynamics-v2/v1":
+        if split == "test" and family is None:
+            raise ValueError("V2 test requires explicit evaluation family")
+        family = family or ("train" if split == "train" else "iid_val")
     records = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(root.glob("cube-*.json"))]
-    selected = [r for r in records if r["split"] == split]
+    selected = [r for r in records if r["split"] == split and
+                (family is None or r.get("evaluation_family") == family)]
     if not selected:
         raise ValueError(f"no {split} records")
-    return (np.asarray([r["state"] for r in selected], dtype=np.float32),
+    return (np.asarray([r[observation_key] for r in selected], dtype=np.float32),
             np.asarray([r["action_sequence"] for r in selected], dtype=np.float32))

@@ -10,8 +10,10 @@ import math
 
 class MuJoCoCubeBackend:
     def __init__(self, friction: float = 0.5, timestep: float = 0.005,
-                 mass: float = 1.0):
-        if not math.isfinite(friction) or friction <= 0 or timestep <= 0 or not math.isfinite(mass) or mass <= 0:
+                 mass: float = 1.0, box_half_size: float = 0.05):
+        if (not math.isfinite(friction) or friction <= 0 or timestep <= 0 or
+                not math.isfinite(mass) or mass <= 0 or
+                not math.isfinite(box_half_size) or box_half_size <= 0):
             raise ValueError("invalid physical parameters")
         import mujoco
         import numpy as np
@@ -20,9 +22,10 @@ class MuJoCoCubeBackend:
 <option timestep="{timestep}" gravity="0 0 -9.81"/>
 <worldbody>
   <geom type="plane" size="2 2 0.1" friction="{friction} 0.005 0.0001"/>
+  <camera name="track" pos="0 -1.0 0.8" xyaxes="1 0 0 0 0.65 0.76" fovy="45"/>
   <body name="cube" pos="0 0 0.05">
     <freejoint/>
-    <geom type="box" size="0.05 0.05 0.05" mass="{mass}" friction="{friction} 0.005 0.0001"/>
+    <geom type="box" size="{box_half_size} {box_half_size} {box_half_size}" mass="{mass}" friction="{friction} 0.005 0.0001"/>
   </body>
 </worldbody>
 </mujoco>'''
@@ -62,13 +65,17 @@ class MuJoCoCubeBackend:
         return {"displacement": displacement, "event": displacement > 0.005,
                 "final_state": self.data.xpos[self.body_id].tolist(), "steps": horizon}
 
-    def trajectory(self, action: tuple[float, ...], horizon: int, renderer=None) -> dict:
+    def trajectory(self, action: tuple[float, ...], horizon: int, renderer=None,
+                   camera: str | None = None) -> dict:
         """Record actual MuJoCo state at every step after an exact restore."""
         if len(action) != 3 or horizon < 1:
             raise ValueError("expected 3D force and positive horizon")
         positions, velocities, contacts, frames = [], [], [], []
         if renderer is not None:
-            renderer.update_scene(self.data)
+            if camera is None:
+                renderer.update_scene(self.data)
+            else:
+                renderer.update_scene(self.data, camera=camera)
             frames.append(renderer.render().copy())
         for _ in range(horizon):
             self.data.xfrc_applied[self.body_id, :3] = action
@@ -77,7 +84,10 @@ class MuJoCoCubeBackend:
             velocities.append(self.data.cvel[self.body_id, 3:].copy().tolist())
             contacts.append(int(self.data.ncon > 0))
             if renderer is not None:
-                renderer.update_scene(self.data)
+                if camera is None:
+                    renderer.update_scene(self.data)
+                else:
+                    renderer.update_scene(self.data, camera=camera)
                 frames.append(renderer.render().copy())
         return {"position": positions, "velocity": velocities, "contact": contacts,
                 "rgb": frames}
