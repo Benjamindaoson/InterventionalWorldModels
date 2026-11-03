@@ -141,9 +141,13 @@ class JointWorldAction(nn.Module):
         self.world_head = nn.Linear(width * 2, width)
         self.action_head = nn.Linear(width * 2, 3)
 
+    def _latent(self, frames: torch.Tensor) -> torch.Tensor:
+        """Bound representation scale so moving encoder targets stay finite."""
+        return self.visual.encode(frames).tanh()
+
     def loss(self, frames: torch.Tensor, actions: torch.Tensor,
              world_weight: float = 1., action_weight: float = 1.) -> torch.Tensor:
-        latent = self.visual.encode(frames)
+        latent = self._latent(frames)
         current = latent[:, :-1]
         future = latent[:, 1:]
         hidden, _ = self.joint(current)
@@ -160,12 +164,12 @@ class JointWorldAction(nn.Module):
         """Teacher-forced next latent, using only frames through the current step."""
         if observed_frames.shape[1] != actions.shape[1]:
             raise ValueError("current frame/action length mismatch")
-        current = self.visual.encode(observed_frames)
+        current = self._latent(observed_frames)
         hidden, _ = self.joint(current)
         return self.world_head(torch.cat((hidden, self.action_encoder(actions / 10)), -1))
 
     def predict_actions(self, frames: torch.Tensor) -> torch.Tensor:
         """Inverse dynamics from adjacent frames; no action input is accepted."""
-        latent = self.visual.encode(frames)
+        latent = self._latent(frames)
         hidden, _ = self.joint(latent[:, :-1])
         return self.action_head(torch.cat((hidden, latent[:, 1:]), -1)) * 10

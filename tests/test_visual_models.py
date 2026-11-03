@@ -53,3 +53,8 @@ def test_joint_independent_modes_do_not_update_unused_heads():
         model = JointWorldAction(8)
         model.loss(frames, actions, world_weight, action_weight).backward()
         assert all(parameter.grad is None for parameter in getattr(model, unused).parameters())
+
+
+def test_joint_target_latent_is_bounded():
+    model = JointWorldAction(8)
+    assert model._latent(torch.ones(1, 2, 3, 32, 32) * 255).abs().max() <= 1

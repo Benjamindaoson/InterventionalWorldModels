@@ -35,7 +35,7 @@ for scene in sorted({r["scene_id"] for r in records}):
     with torch.no_grad():
         if checkpoint["mode"] in {"world", "joint"}:
             predicted = model.predict_world(frames[:, :-1], actions)
-            actual = model.visual.encode(frames[:, 1:])
+            actual = model._latent(frames[:, 1:])
             row["world_latent_mse"] = float(F.mse_loss(predicted, actual))
             row["decoded_next_frame_mse"] = float(F.mse_loss(model.visual.decode(predicted), frames[:, 1:]))
         if checkpoint["mode"] in {"action", "joint"}:
