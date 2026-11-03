@@ -1,0 +1,5 @@
+model: video_flow
+dataset: artifacts/mujoco-rgb-v1
+run_dir: artifacts/video-run
+seed: 17
+epochs: 1
